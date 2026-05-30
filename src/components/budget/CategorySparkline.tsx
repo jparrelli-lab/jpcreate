@@ -1,34 +1,36 @@
-import { BarChart } from "react-native-gifted-charts";
-import { useTheme } from "@/theme/colors";
+import { View, StyleSheet } from "react-native";
 
 interface CategorySparklineProps {
   history: { month: string; spentCents: number; limitCents: number }[];
 }
 
 export function CategorySparkline({ history }: CategorySparklineProps) {
-  const t = useTheme();
-  const data = history.map((h) => ({
-    value: h.spentCents / 100,
-    frontColor: h.limitCents > 0 && h.spentCents > h.limitCents ? "#ef4444" : "#6366f1",
-    topLabelComponent: () => null,
-  }));
-
+  const maxVal = Math.max(...history.map((h) => h.spentCents), 1);
   return (
-    <BarChart
-      data={data}
-      width={72}
-      height={28}
-      barWidth={16}
-      spacing={4}
-      hideRules
-      hideYAxisText
-      xAxisColor="transparent"
-      yAxisColor="transparent"
-      barBorderRadius={2}
-      noOfSections={1}
-      maxValue={Math.max(...data.map((d) => d.value), 1)}
-      xAxisThickness={0}
-      yAxisThickness={0}
-    />
+    <View style={styles.container}>
+      {history.map((h, i) => {
+        const pct = h.spentCents / maxVal;
+        const over = h.limitCents > 0 && h.spentCents > h.limitCents;
+        return (
+          <View key={i} style={styles.barWrapper}>
+            <View
+              style={[
+                styles.bar,
+                {
+                  height: Math.max(pct * 28, 2),
+                  backgroundColor: over ? "#ef4444" : "#6366f1",
+                },
+              ]}
+            />
+          </View>
+        );
+      })}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flexDirection: "row", alignItems: "flex-end", height: 28, gap: 4, width: 72 },
+  barWrapper: { flex: 1, height: 28, justifyContent: "flex-end" },
+  bar: { borderRadius: 2 },
+});

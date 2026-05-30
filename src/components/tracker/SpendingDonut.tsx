@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
-import { PieChart } from "react-native-gifted-charts";
+import Svg, { Path, Circle } from "react-native-svg";
 import { formatCurrency } from "@/lib/utils";
 import { useTheme, CATEGORY_COLORS } from "@/theme/colors";
 import type { Category, Expense } from "@/types";
@@ -7,6 +7,27 @@ import type { Category, Expense } from "@/types";
 interface SpendingDonutProps {
   expenses: Expense[];
   categories: Category[];
+}
+
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function donutSlicePath(cx: number, cy: number, outerR: number, innerR: number, start: number, end: number) {
+  if (end - start >= 360) end = 359.99;
+  const s1 = polarToCartesian(cx, cy, outerR, end);
+  const e1 = polarToCartesian(cx, cy, outerR, start);
+  const s2 = polarToCartesian(cx, cy, innerR, start);
+  const e2 = polarToCartesian(cx, cy, innerR, end);
+  const large = end - start > 180 ? 1 : 0;
+  return [
+    `M ${s1.x} ${s1.y}`,
+    `A ${outerR} ${outerR} 0 ${large} 0 ${e1.x} ${e1.y}`,
+    `L ${s2.x} ${s2.y}`,
+    `A ${innerR} ${innerR} 0 ${large} 1 ${e2.x} ${e2.y}`,
+    "Z",
+  ].join(" ");
 }
 
 export function SpendingDonut({ expenses, categories }: SpendingDonutProps) {
@@ -32,25 +53,36 @@ export function SpendingDonut({ expenses, categories }: SpendingDonutProps) {
     );
   }
 
-  const pieData = data.map((d) => ({ value: d.value, color: d.color }));
+  const size = 150;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = 65;
+  const innerR = 44;
+
+  let currentAngle = 0;
+  const slices = data.map((d) => {
+    const sweep = (d.value / total) * 360;
+    const path = donutSlicePath(cx, cy, outerR, innerR, currentAngle, currentAngle + sweep);
+    currentAngle += sweep;
+    return { ...d, path };
+  });
 
   return (
     <View style={[styles.card, { backgroundColor: t.bgCard, borderColor: t.border }]}>
       <Text style={[styles.sectionLabel, { color: t.textMuted }]}>SPENDING BREAKDOWN</Text>
       <View style={styles.chartRow}>
-        <PieChart
-          data={pieData}
-          donut
-          radius={75}
-          innerRadius={50}
-          innerCircleColor={t.bgCard}
-          centerLabelComponent={() => (
-            <View style={styles.center}>
-              <Text style={[styles.centerAmount, { color: t.textPrimary }]}>{formatCurrency(total)}</Text>
-              <Text style={[styles.centerLabel, { color: t.textMuted }]}>total</Text>
-            </View>
-          )}
-        />
+        <View style={styles.svgWrapper}>
+          <Svg width={size} height={size}>
+            {slices.map((s, i) => (
+              <Path key={i} d={s.path} fill={s.color} />
+            ))}
+            <Circle cx={cx} cy={cy} r={innerR - 2} fill={t.bgCard} />
+          </Svg>
+          <View style={[styles.center, { width: (innerR - 2) * 2, height: (innerR - 2) * 2 }]}>
+            <Text style={[styles.centerAmount, { color: t.textPrimary }]}>{formatCurrency(total)}</Text>
+            <Text style={[styles.centerLabel, { color: t.textMuted }]}>total</Text>
+          </View>
+        </View>
         <View style={styles.legend}>
           {data.slice(0, 5).map((d) => (
             <View key={d.name} style={styles.legendRow}>
@@ -74,8 +106,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13 },
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 12 },
   chartRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  center: { alignItems: "center" },
-  centerAmount: { fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  svgWrapper: { justifyContent: "center", alignItems: "center" },
+  center: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  centerAmount: { fontSize: 13, fontWeight: "700", fontVariant: ["tabular-nums"] },
   centerLabel: { fontSize: 10 },
   legend: { flex: 1 },
   legendRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
