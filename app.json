@@ -29,7 +29,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withSwiftFix"
+      "./plugins/withSwiftFix",
+      [
+        "expo-router",
+        {
+          "origin": "https://budget.app"
+        }
+      ]
     ]
   }
 }
